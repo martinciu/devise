@@ -86,6 +86,10 @@ module ActionController::Routing
         options = resources.extract_options!
 
         resources.map!(&:to_sym)
+        
+        controllers = Hash.new { |h,k| h[k] = "#{k}" }
+        controllers.merge!(options.delete(:controllers) || {})
+        
         resources.each do |resource|
           mapping = Devise::Mapping.new(resource, options.dup)
           Devise.default_scope ||= mapping.name
@@ -95,7 +99,7 @@ module ActionController::Routing
 
           with_options(route_options) do |routes|
             mapping.for.each do |mod|
-              send(mod, routes, mapping) if self.respond_to?(mod, true)
+              send(mod, routes, mapping, controllers) if self.respond_to?(mod, true)
             end
           end
         end
@@ -103,8 +107,8 @@ module ActionController::Routing
 
       protected
 
-        def database_authenticatable(routes, mapping)
-          routes.with_options(:controller => 'sessions', :name_prefix => nil) do |session|
+        def database_authenticatable(routes, mapping, controllers)
+          routes.with_options(:controller => controllers[:sessions], :name_prefix => nil) do |session|
             session.send(:"new_#{mapping.name}_session",     mapping.path_names[:sign_in],  :action => 'new',     :conditions => { :method => :get })
             session.send(:"#{mapping.name}_session",         mapping.path_names[:sign_in],  :action => 'create',  :conditions => { :method => :post })
             destroy_options = { :action => 'destroy' }
@@ -113,20 +117,20 @@ module ActionController::Routing
           end
         end
 
-        def confirmable(routes, mapping)
-          routes.resource :confirmation, :only => [:new, :create, :show], :as => mapping.path_names[:confirmation]
+        def confirmable(routes, mapping, controllers)
+          routes.resource :confirmation, :only => [:new, :create, :show], :as => mapping.path_names[:confirmation], :controller => controllers[:confirmations]
         end
 
-        def lockable(routes, mapping)
-          routes.resource :unlock, :only => [:new, :create, :show], :as => mapping.path_names[:unlock]
+        def lockable(routes, mapping, controllers)
+          routes.resource :unlock, :only => [:new, :create, :show], :as => mapping.path_names[:unlock], :controller => controllers[:unlocks]
         end
 
-        def recoverable(routes, mapping)
-          routes.resource :password, :only => [:new, :create, :edit, :update], :as => mapping.path_names[:password]
+        def recoverable(routes, mapping, controllers)
+          routes.resource :password, :only => [:new, :create, :edit, :update], :as => mapping.path_names[:password], :controller => controllers[:passwords]
         end
 
-        def registerable(routes, mapping)
-          routes.resource :registration, :only => [:new, :create, :edit, :update, :destroy], :as => mapping.raw_path[1..-1], :path_prefix => nil, :path_names => { :new => mapping.path_names[:sign_up] }
+        def registerable(routes, mapping, controllers)
+          routes.resource :registration, :only => [:new, :create, :edit, :update, :destroy], :as => mapping.raw_path[1..-1], :path_prefix => nil, :path_names => { :new => mapping.path_names[:sign_up] }, :controller => controllers[:registrations]
         end
     end
   end
